@@ -1,26 +1,253 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* === Code Lens — Dark developer aesthetic === */
+body {
+  font-family: var(--font-geist-sans);
+}
+
+.font-mono {
+  font-family: var(--font-geist-mono);
+}
+
+/* Three-pane container */
+.code-lens-main {
+  display: grid;
+  grid-template-columns: 260px 1fr 420px;
+  gap: 12px;
+  height: calc(100vh - 140px);
+  min-height: 560px;
+}
+
+@media (max-width: 1024px) {
+  .code-lens-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    height: auto;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed #3f3f46;
+  background: #18181b;
+  transition: all 0.1s ease;
+}
+
+.drop-zone.dragover {
+  border-color: #6366f1;
+  background: #27253a;
+  transform: scale(1.005);
+}
+
+/* File tree */
+.file-tree {
+  background: #111113;
+  border: 1px solid #27272a;
+  font-size: 13px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 1px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  color: #a1a1aa;
+}
+
+.file-item:hover {
+  background: #1f1f23;
+  color: #e4e4e7;
+}
+
+.file-item.active {
+  background: #27253a;
+  color: #c4b5fd;
+  border: 1px solid #6366f1;
+}
+
+.file-item .icon {
+  opacity: 0.7;
+}
+
+/* Code viewer */
+.code-viewer {
+  background: #0a0a0f;
+  border: 1px solid #27272a;
+  font-family: var(--font-geist-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: auto;
+}
+
+.code-viewer pre {
+  margin: 0;
+  padding: 16px;
+  white-space: pre;
+}
+
+/* Task chips */
+.task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #3f3f46;
+  background: #18181b;
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.task-chip.active {
+  background: #312e81;
+  border-color: #6366f1;
+  color: #c4b5fd;
+}
+
+.task-chip:hover:not(.active) {
+  border-color: #52525b;
+  color: #e4e4e7;
+}
+
+/* Result panels */
+.result-panel {
+  background: #111113;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.result-panel header {
+  padding: 8px 12px;
+  background: #18181b;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #71717a;
+  border-bottom: 1px solid #27272a;
+}
+
+.result-body {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Syntax highlight wrapper */
+.hl-wrapper {
+  position: relative;
+  background: #0a0a0f;
+  border: 1px solid #27272a;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+
+.hl-wrapper .copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  background: rgba(63, 63, 70, 0.85);
+  color: #d4d4d8;
+  border-radius: 4px;
+  border: 1px solid #3f3f46;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.9;
+  transition: all 0.1s;
+}
+
+.hl-wrapper .copy-btn:hover {
+  background: #3f3f46;
+  opacity: 1;
+}
+
+/* Loading / states */
+.loading-bar {
+  height: 2px;
+  background: linear-gradient(to right, #6366f1, #a5b4fc, #6366f1);
+  background-size: 200% 100%;
+  animation: loading 1.2s linear infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.empty-state {
+  color: #52525b;
+  font-size: 13px;
+}
+
+.error-box {
+  background: #3f1f1f;
+  border: 1px solid #7f2a2a;
+  color: #fda4af;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+/* Misc polish */
+.badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #27272a;
+  color: #a1a1aa;
+  font-family: var(--font-geist-mono);
+}
+
+.btn-primary {
+  background: #6366f1;
+  color: white;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.1s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #4f46e5;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sample-btn {
+  font-size: 12px;
+  padding: 6px 10px;
+  background: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #c4b5fd;
+  transition: 0.1s;
+}
+
+.sample-btn:hover {
+  background: #27253a;
+  border-color: #6366f1;
 }
