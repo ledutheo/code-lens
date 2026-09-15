@@ -82,7 +82,7 @@ Exact shape (only include requested keys):
   "bug_fixes": {
     "summary": "one-sentence description of issues",
     "issues": ["issue 1 explanation", "issue 2 explanation"],
-    "fixed_code": "the full corrected source code as a string"
+    "fixed_code": "the corrected source (provide full file only for small scripts; for large files give a concise unified diff or the key changed functions only)"
   },
   "tests": {
     "framework": "name of test framework (e.g. jest, vitest, pytest, ...)",
@@ -183,6 +183,11 @@ export async function analyzeWithGrok(params: AnalyzeParams): Promise<GrokAnalys
     throw new Error("XAI_API_KEY is not configured on the server.");
   }
 
+  // === TEST MODE for reliable local demo ===
+  if (apiKey === "xai-test-dummy-123") {
+    return getTestAnalysis(params);
+  }
+
   const prompt = buildPrompt(params);
 
   const res = await fetch("https://api.x.ai/v1/responses", {
@@ -242,4 +247,115 @@ export async function analyzeWithGrok(params: AnalyzeParams): Promise<GrokAnalys
     parseError: true,
     raw: modelText || JSON.stringify(data, null, 2).slice(0, 8000),
   };
+}
+
+// === Test data for local verification (no real API call) ===
+function getTestAnalysis(params: AnalyzeParams): AnalysisResult {
+  const isJS = params.language.includes("javascript") || params.code.includes("function processItems");
+  const isPy = params.language.includes("python") || params.code.includes("def average");
+  const isTS = params.language.includes("typescript") || params.code.includes("formatDisplayName");
+
+  const result: AnalysisResult = {};
+
+  if (params.tasks.includes("explain")) {
+    result.explanation = isJS
+      ? "This function iterates over an array of items and attempts to uppercase each one, collecting the results. It has an off-by-one error in the loop condition that will cause it to access an undefined value at the end of the array."
+      : isPy
+      ? "The function calculates the arithmetic mean of a list of numbers by summing them and dividing by the count. It does not handle the case when the input list is empty, which would cause a division by zero error."
+      : "A small utility to format a person's display name from first and optional last name. It trims input and uses the first letter of the last name as an initial. The implementation is correct but could be improved for readability and robustness.";
+  }
+
+  if (params.tasks.includes("fix_bugs")) {
+    if (isJS) {
+      result.bug_fixes = {
+        summary: "Off-by-one error in the for loop condition.",
+        issues: [
+          "The loop uses i <= items.length instead of i < items.length, causing items[items.length] (undefined) to be accessed.",
+          "No check if items[i] exists before calling .toUpperCase()."
+        ],
+        fixed_code: `function processItems(items) {
+  const results = [];
+  for (let i = 0; i < items.length; i++) {
+    if (items[i]) {
+      results.push(items[i].toUpperCase());
+    }
+  }
+  return results;
+}`
+      };
+    } else if (isPy) {
+      result.bug_fixes = {
+        summary: "No handling for empty list (division by zero).",
+        issues: [
+          "When values is empty, len(values) == 0 and total / 0 raises ZeroDivisionError."
+        ],
+        fixed_code: `def average(values):
+    """Return the average of a list of numbers."""
+    if not values:
+        return 0.0  # or raise ValueError("Cannot average empty list")
+    total = sum(values)
+    return total / len(values)`
+      };
+    } else {
+      result.bug_fixes = {
+        summary: "Minor robustness issues.",
+        issues: ["last[0] can fail if last is empty string (though optional)."],
+        fixed_code: `export function formatDisplayName(first: string, last?: string): string {
+  const trimmedFirst = first.trim();
+  if (!last) {
+    return trimmedFirst;
+  }
+  const initial = last.trim()[0]?.toUpperCase() ?? "";
+  return initial ? \`\${trimmedFirst} \${initial}.\` : trimmedFirst;
+}`
+      };
+    }
+  }
+
+  if (params.tasks.includes("generate_tests")) {
+    if (isJS || isTS) {
+      result.tests = {
+        framework: "jest",
+        code: `import { ${isTS ? "formatDisplayName" : "processItems"} } from "./${isTS ? "format" : "sum"}";
+
+describe("${isTS ? "formatDisplayName" : "processItems"}", () => {
+  it("handles basic case", () => {
+    ${isTS 
+      ? 'expect(formatDisplayName("John", "Doe")).toBe("John D.");' 
+      : 'expect(processItems(["apple", "banana"])).toEqual(["APPLE", "BANANA"]);'}
+  });
+
+  it("handles edge cases", () => {
+    ${isTS 
+      ? 'expect(formatDisplayName("  Alice  ")).toBe("Alice");' 
+      : 'expect(processItems([])).toEqual([]);'}
+  });
+});`
+      };
+    } else {
+      result.tests = {
+        framework: "pytest",
+        code: `import pytest
+from stats import average
+
+def test_average_basic():
+    assert average([10, 20, 30]) == 20.0
+
+def test_average_empty():
+    assert average([]) == 0.0  # or test raises`
+      };
+    }
+  }
+
+  if (params.tasks.includes("suggest_improvements")) {
+    result.improvements = [
+      "Add input validation and JSDoc / docstring.",
+      "Consider using Array.prototype.map + filter for the JS version instead of manual loop.",
+      "Add unit tests (see Generate Tests).",
+      "Use more descriptive variable names.",
+      "For TS, make the function more robust against whitespace-only strings."
+    ];
+  }
+
+  return result;
 }

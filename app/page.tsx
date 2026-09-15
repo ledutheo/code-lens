@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import {
   Upload,
   FileText,
@@ -12,6 +12,73 @@ import {
   Check,
 } from "lucide-react";
 import { Prism as SyntaxHighlighter, themes } from "prism-react-renderer";
+
+// Simple ErrorBoundary to prevent one bad CodeBlock from crashing the whole results area
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.error("CodeBlock render error:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || <pre className="p-3 text-xs bg-zinc-900 text-zinc-400">Unable to highlight code (render error)</pre>;
+    }
+    return this.props.children;
+  }
+}
+
+async function copyToClipboard(text: string, label = "Copied") {
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = document.title;
+    document.title = label;
+    setTimeout(() => {
+      document.title = orig;
+    }, 900);
+  } catch {
+    alert(text.slice(0, 200) + (text.length > 200 ? "..." : ""));
+  }
+}
+
+function CodeBlock({ code, lang }: { code: string; lang: string }) {
+  const safeLang = ["javascript", "typescript", "python", "js", "ts", "py"].includes(lang)
+    ? lang
+    : "text";
+
+  return (
+    <div className="hl-wrapper">
+      <button
+        className="copy-btn"
+        onClick={() => copyToClipboard(code, "Code copied")}
+      >
+        <Copy size={13} /> Copy
+      </button>
+      {/* @ts-expect-error - prism-react-renderer types loose on React 19/Next 16 */}
+      <SyntaxHighlighter
+        language={safeLang}
+        style={themes.vsDark}
+        customStyle={{
+          margin: 0,
+          padding: "14px 14px 14px 14px",
+          background: "transparent",
+          fontSize: "12.5px",
+        }}
+        codeTagProps={{ style: { fontFamily: "var(--font-geist-mono)" } }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
 
 // Types
 interface UploadedFile {
@@ -591,56 +658,10 @@ export default function CodeLens() {
     }
   };
 
-  // Copy helpers
-  const copyToClipboard = async (text: string, label = "Copied") => {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Cheap visual feedback
-      const orig = document.title;
-      document.title = label;
-      setTimeout(() => {
-        document.title = orig;
-      }, 900);
-    } catch {
-      // fallback
-      alert(text.slice(0, 200) + (text.length > 200 ? "..." : ""));
-    }
-  };
-
   const copyRaw = () => {
     if (analysis && "parseError" in analysis) {
       copyToClipboard(analysis.raw, "Raw output copied");
     }
-  };
-
-  // Render a highlighted code block with copy
-  const CodeBlock = ({ code, lang }: { code: string; lang: string }) => {
-    const prismLang = lang === "text" ? "text" : lang;
-
-    return (
-      <div className="hl-wrapper">
-        <button
-          className="copy-btn"
-          onClick={() => copyToClipboard(code, "Code copied")}
-        >
-          <Copy size={13} /> Copy
-        </button>
-        {/* @ts-expect-error - prism-react-renderer types are loose with React 19 + Next 16 */}
-        <SyntaxHighlighter
-          language={prismLang}
-          style={themes.vsDark}
-          customStyle={{
-            margin: 0,
-            padding: "14px 14px 14px 14px",
-            background: "transparent",
-            fontSize: "12.5px",
-          }}
-          codeTagProps={{ style: { fontFamily: "var(--font-geist-mono)" } }}
-        >
-          {code}
-        </SyntaxHighlighter>
-      </div>
-    );
   };
 
   const activeTaskCount = Object.values(enabledTasks).filter(Boolean).length;
@@ -944,7 +965,9 @@ export default function CodeLens() {
                         {analysis.bug_fixes.fixed_code && (
                           <div>
                             <div className="text-xs mb-1 text-zinc-400">Fixed code</div>
-                            <CodeBlock code={analysis.bug_fixes.fixed_code} lang={viewerLang} />
+                            <ErrorBoundary fallback={<pre className="p-3 text-xs bg-zinc-900 overflow-auto">{analysis.bug_fixes.fixed_code}</pre>}>
+                              <CodeBlock code={analysis.bug_fixes.fixed_code} lang={viewerLang} />
+                            </ErrorBoundary>
                           </div>
                         )}
                       </div>
@@ -955,7 +978,9 @@ export default function CodeLens() {
                     <div className="result-panel">
                       <header>Generate Tests — {analysis.tests.framework}</header>
                       <div className="result-body">
-                        <CodeBlock code={analysis.tests.code} lang={viewerLang} />
+                        <ErrorBoundary fallback={<pre className="p-3 text-xs bg-zinc-900 overflow-auto">{analysis.tests.code}</pre>}>
+                          <CodeBlock code={analysis.tests.code} lang={viewerLang} />
+                        </ErrorBoundary>
                       </div>
                     </div>
                   )}
